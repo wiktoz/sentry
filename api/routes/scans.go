@@ -13,7 +13,7 @@ import (
 )
 
 func GetScanById(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/scan-get/")
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/scan/")
 	scanID, err := strconv.Atoi(idStr)
 
 	if err != nil || scanID <= 0 {

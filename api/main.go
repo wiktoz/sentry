@@ -29,9 +29,14 @@ func main() {
 		log.Fatalf("failed to exec schema: %v", err)
 	}
 
-	http.HandleFunc("/api/run-scripts", routes.RunScan)
-	http.HandleFunc("/api/scan-get/", routes.GetScanById)
-	http.HandleFunc("/api/get_scans", routes.GetScans)
+	// API routes
+	http.HandleFunc("/api/scan/run", routes.RunScan)
+	http.HandleFunc("/api/scan/", routes.GetScanById)
+	http.HandleFunc("/api/scans", routes.GetScans)
+
+	// React static files from ./web/dist
+	fs := http.FileServer(http.Dir("./web/dist"))
+	http.Handle("/", fs)
 
 	srv := &http.Server{
 		Addr:              ":8080",
