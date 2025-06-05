@@ -30,8 +30,7 @@ func GetScanById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := models.ScanResponse{Scan: scanData}
-	helpers.WriteJSON(w, resp)
+	helpers.WriteJSON(w, scanData)
 }
 
 func GetScans(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +58,7 @@ func GetScans(w http.ResponseWriter, r *http.Request) {
 		scans = append(scans, scanData)
 	}
 
-	helpers.WriteJSON(w, map[string]any{"scans": scans})
+	helpers.WriteJSON(w, scans)
 }
 
 func RunScan(w http.ResponseWriter, r *http.Request) {

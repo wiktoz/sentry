@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/wiktoz/sentry/db"
@@ -21,11 +20,7 @@ func main() {
 	}
 	defer db.DB.Close()
 
-	schema, err := os.ReadFile("./sql/db_init.sql")
-	if err != nil {
-		log.Fatalf("failed to read schema file: %v", err)
-	}
-	if _, err = db.DB.Exec(string(schema)); err != nil {
+	if _, err = db.DB.Exec(db.Schema); err != nil {
 		log.Fatalf("failed to exec schema: %v", err)
 	}
 

@@ -10,10 +10,10 @@ RUN go mod download
 
 COPY api/ ./
 
-RUN go build -o server ./main.go
+RUN go build -ldflags="-s -w" -o server ./main.go
 
 # Stage 2: Build Vite React app
-FROM node:slim-alpine AS builder-web
+FROM node:24-alpine AS builder-web
 
 WORKDIR /app/web
 
@@ -24,10 +24,11 @@ COPY web/ ./
 
 RUN npm run build
 
-# Stage 3: Final minimal image with nmap
+# Stage 3: Final minimal image with nmap + NSE scripts
 FROM alpine:latest
 
-RUN apk add --no-cache nmap tini
+# Install nmap, tini, bash, curl, tar for unpacking scripts
+RUN apk add --no-cache nmap nmap-scripts tini
 
 WORKDIR /app
 

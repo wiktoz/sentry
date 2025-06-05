@@ -1,9 +1,6 @@
 package models
 
 // Data structures for JSON responses
-type ScanResponse struct {
-	Scan ScanData `json:"scan"`
-}
 
 type ScanData struct {
 	Date  string     `json:"date"`
