@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 )
@@ -12,4 +13,9 @@ func WriteJSON(w http.ResponseWriter, v any) {
 	if err != nil {
 		log.Printf("Failed to write JSON response: %v", err)
 	}
+}
+
+func ReadJSON(body io.ReadCloser, v any) error {
+	defer body.Close()
+	return json.NewDecoder(body).Decode(v)
 }

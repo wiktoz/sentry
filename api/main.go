@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
@@ -8,13 +9,15 @@ import (
 
 	"github.com/wiktoz/sentry/db"
 	"github.com/wiktoz/sentry/routes"
+	"github.com/wiktoz/sentry/scripts"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
+	// DB setup
 	var err error
-	db.DB, err = sql.Open("sqlite3", "./results.db")
+	db.DB, err = sql.Open("sqlite", "./results.db")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,12 +27,28 @@ func main() {
 		log.Fatalf("failed to exec schema: %v", err)
 	}
 
-	// API routes
+	// Start auto scan
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	scripts.StartAutoScan(ctx)
+
+	// HTTP API
 	http.HandleFunc("/api/scan/run", routes.RunScan)
 	http.HandleFunc("/api/scan/", routes.GetScanById)
 	http.HandleFunc("/api/scans", routes.GetScans)
 
-	// React static files from ./web/dist
+	http.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			routes.GetConfig(w, r)
+		case http.MethodPut:
+			routes.UpdateConfig(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Static files
 	fs := http.FileServer(http.Dir("./web/dist"))
 	http.Handle("/", fs)
 
