@@ -31,4 +31,5 @@ type PortData struct {
 type Config struct {
 	ScanFrequency int    `json:"scan_frequency"`
 	Email         string `json:"email"`
+	ScanTarget    string `json:"target"`
 }

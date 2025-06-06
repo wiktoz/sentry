@@ -63,6 +63,9 @@ const Stats = () => {
                                                                 <div key={host.address + port.port_num} className="flex gap-2">
                                                                     <div>{port.port_num}/{port.protocol}</div>
                                                                     <div>{port.service_name}</div>
+
+                                                                    {
+                                                                    port.vulnerabilities &&
                                                                     <div className="flex flex-col gap-1">
                                                                         <div>{port.vulnerabilities.length} vulnerabilities</div>
                                                                         <div>
@@ -70,19 +73,20 @@ const Stats = () => {
                                                                                 port.vulnerabilities.slice(0, 5).map(vuln => {
                                                                                     return(
                                                                                         <div key={host.address + port.port_num + vuln.cve}>
-                                                                                            <p>{vuln.score} {vuln.cve}</p>
+                                                                                            <p>{vuln.score} <a href={vuln.url} target="_blank">{vuln.cve}</a></p>
                                                                                         </div>
                                                                                     )
                                                                                 })
                                                                             }
                                                                         </div>
                                                                     </div>
+                                                                    }
+                                                                    
                                                                 </div>
                                                             )
                                                         })
                                                     }
                                                 </div>
-                                                {JSON.stringify(host.ports)}
                                             </div>
                                         )
                                     })

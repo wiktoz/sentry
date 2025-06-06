@@ -19,7 +19,7 @@ RUN npm run build
 FROM alpine:latest
 
 # Install tools MikroTik needs
-RUN apk add --no-cache nmap nmap-scripts tini bash curl
+RUN apk add --no-cache nmap nmap-scripts tini bash curl iproute2
 
 WORKDIR /app
 

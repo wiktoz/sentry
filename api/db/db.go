@@ -36,11 +36,12 @@ CREATE TABLE IF NOT EXISTS ports (
 CREATE TABLE IF NOT EXISTS config (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     scan_frequency INTEGER NOT NULL,
-    email TEXT NOT NULL
+    email TEXT NOT NULL,
+    scan_targets TEXT NOT NULL
 );
 
-INSERT INTO config (id, scan_frequency, email)
-VALUES (1, 300, 'admin@example.com');
+INSERT INTO config (id, scan_frequency, email, scan_targets)
+VALUES (1, 300, 'admin@example.com', '192.168.1.0/24');
 
 CREATE TABLE vulnerabilities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,14 +57,14 @@ CREATE TABLE vulnerabilities (
 
 func GetConfig(db *sql.DB) (models.Config, error) {
 	var cfg models.Config
-	err := db.QueryRow("SELECT scan_frequency, email FROM config WHERE id = 1").
-		Scan(&cfg.ScanFrequency, &cfg.Email)
+	err := db.QueryRow("SELECT scan_frequency, email, scan_targets FROM config WHERE id = 1").
+		Scan(&cfg.ScanFrequency, &cfg.Email, &cfg.ScanTarget)
 	return cfg, err
 }
 
 func SaveConfig(db *sql.DB, cfg models.Config) error {
 	_, err := db.Exec(`
-		UPDATE config SET scan_frequency = ?, email = ? WHERE id = 1
-	`, cfg.ScanFrequency, cfg.Email)
+		UPDATE config SET scan_frequency = ?, email = ?, scan_targets = ? WHERE id = 1
+	`, cfg.ScanFrequency, cfg.Email, cfg.ScanTarget)
 	return err
 }
