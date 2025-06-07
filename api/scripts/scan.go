@@ -87,7 +87,7 @@ func RunFullScan(scanID int, target string) {
 		log.Fatalf("Normal scan failed: %v", err)
 	}
 
-	err = RunVulnScan(hosts)
+	err = RunVulnScan(hosts, scanID)
 	if err != nil {
 		log.Fatalf("Vulnerability scan failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func RunNormalScan(target string, scanID int) ([]Host, error) {
 	return filteredHosts, nil
 }
 
-func RunVulnScan(hosts []Host) error {
+func RunVulnScan(hosts []Host, scanID int) error {
 	for _, host := range hosts {
 		for _, addr := range host.Addresses {
 			if addr.AddrType != "ipv4" {
@@ -187,21 +187,17 @@ func RunVulnScan(hosts []Host) error {
 
 			target := addr.Addr + " -p " + strings.Join(ports, ",")
 
-			args := []string{"-sV", "--script", "vulners", "--host-timeout", "20s", "-oX", "-"}
+			args := []string{"-sV", "--script", "vulners", "--host-timeout", "30s", "-oX", "-"}
 			args = append(args, strings.Split(target, " ")...) // split into ["IP", "-p", "ports"]
 
 			log.Println("Running nmap for:", addr.Addr)
-			log.Println("ARGS:", args)
 
 			cmd := exec.Command("nmap", args...)
 			output, err := cmd.Output()
 
-			log.Println("OUTPUT:")
 			if err != nil {
 				return err
 			}
-
-			log.Println(string(output))
 
 			var nmapRun NmapRun
 			if err := xml.NewDecoder(bytes.NewReader(output)).Decode(&nmapRun); err != nil {
@@ -222,7 +218,7 @@ func RunVulnScan(hosts []Host) error {
 
 				for _, scannedAddr := range scannedHost.Addresses {
 					var hostID int64
-					err := tx.QueryRow("SELECT id FROM hosts WHERE address = ?", scannedAddr.Addr).Scan(&hostID)
+					err := tx.QueryRow("SELECT id FROM hosts WHERE address = ? AND scan_id = ?", scannedAddr.Addr, scanID).Scan(&hostID)
 					if err != nil {
 						if err == sql.ErrNoRows {
 							log.Printf("Host not found in DB, skipping: %s", scannedAddr.Addr)
@@ -316,32 +312,72 @@ func StartAutoScan(ctx context.Context) {
 		var freq time.Duration
 		var ticker *time.Ticker
 
-		setTicker := func() {
+		// Fetch config and update ticker if freq changed
+		updateTicker := func() error {
 			cfg, err := db.GetConfig(db.DB)
 			if err != nil {
 				log.Printf("Error getting scan config: %v", err)
-				cfg.ScanFrequency = 300 // fallback in seconds
+				return err
 			}
 
 			newFreq := time.Duration(cfg.ScanFrequency) * time.Second
-			if newFreq != freq {
-				if ticker != nil {
-					ticker.Stop()
-				}
-				freq = newFreq
-				ticker = time.NewTicker(freq)
-				log.Printf("Scan frequency set to every %v seconds", freq.Seconds())
+			if newFreq == freq {
+				// no change
+				return nil
 			}
+
+			// freq changed
+			if ticker != nil {
+				ticker.Stop()
+				ticker = nil
+			}
+
+			if cfg.ScanFrequency == 0 {
+				freq = 0
+				log.Println("Scan frequency is 0, auto scanning disabled.")
+				return nil
+			}
+
+			freq = newFreq
+			ticker = time.NewTicker(freq)
+			log.Printf("Scan frequency updated to every %v seconds", freq.Seconds())
+			return nil
 		}
 
-		setTicker() // initialize first ticker
+		// Init ticker once at start
+		err := updateTicker()
+		if err != nil {
+			// on error, fallback freq and ticker disabled
+			freq = 0
+			ticker = nil
+		}
 
 		for {
+			if ticker == nil {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(30 * time.Second):
+					_ = updateTicker()
+					continue
+				}
+			}
+
 			select {
 			case <-ticker.C:
 				cfg, err := db.GetConfig(db.DB)
 				if err != nil {
 					log.Printf("Error getting scan config: %v", err)
+					continue
+				}
+
+				if cfg.ScanFrequency == 0 {
+					if ticker != nil {
+						ticker.Stop()
+						ticker = nil
+						freq = 0
+						log.Println("Scan frequency changed to 0, stopping scans.")
+					}
 					continue
 				}
 
@@ -351,7 +387,20 @@ func StartAutoScan(ctx context.Context) {
 					continue
 				}
 
-				RunFullScan(0, targets)
+				res, err := db.DB.Exec("INSERT INTO scans (created_at) VALUES (datetime('now'))")
+				if err != nil {
+					log.Println("Can't create scan record, skipping scan:", err)
+					continue
+				}
+
+				scanID, err := res.LastInsertId()
+				if err != nil {
+					log.Println("No scan ID returned, skipping scan.")
+					continue
+				}
+
+				RunFullScan(int(scanID), targets)
+				_ = updateTicker()
 
 			case <-ctx.Done():
 				if ticker != nil {

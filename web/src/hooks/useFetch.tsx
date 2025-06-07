@@ -7,22 +7,27 @@ function useFetch<T>(url: string) {
 
     useEffect(() => {
         async function fetchData() {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) 
-                throw new Error('Network error');
-            
-            const json: T = await response.json();
-            setData(json);
-        } catch (err: unknown) {
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError('Unknown error');
+            try {
+                const username = 'admin';
+                const password = 'secret';
+                const headers = new Headers();
+                headers.set('Authorization', 'Basic ' + btoa(username + ':' + password));
+
+                const response = await fetch(url, { headers });
+                if (!response.ok) 
+                    throw new Error('Network error');
+
+                const json: T = await response.json();
+                setData(json);
+            } catch (err: unknown) {
+                if (err instanceof Error) {
+                    setError(err.message);
+                } else {
+                    setError('Unknown error');
+                }
+            } finally {
+                setLoading(false);
             }
-        } finally {
-            setLoading(false);
-        }
         }
         fetchData();
     }, [url]);
@@ -30,5 +35,4 @@ function useFetch<T>(url: string) {
     return { data, loading, error };
 }
 
-
-export default useFetch
+export default useFetch;

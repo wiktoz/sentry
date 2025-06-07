@@ -10,6 +10,12 @@ import (
 var DB *sql.DB
 
 const Schema = `
+DROP TABLE IF EXISTS vulnerabilities;
+DROP TABLE IF EXISTS ports;
+DROP TABLE IF EXISTS hosts;
+DROP TABLE IF EXISTS scans;
+DROP TABLE IF EXISTS config;
+
 CREATE TABLE IF NOT EXISTS scans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME

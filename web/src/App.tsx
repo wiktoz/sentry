@@ -1,12 +1,12 @@
 import './App.css'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Home from './pages/Home'
 import Config from './pages/Config'
-import Stats from './pages/Stats'
+import Scans from './pages/Scans'
 
 export const Page = {
 	Home: "Home",
-	Stats: "Stats",
+	Scans: "Scans",
 	Config: "Config"
 } as const;
 
@@ -14,12 +14,26 @@ type Page = typeof Page[keyof typeof Page];
 
 const pageComponents: Record<Page, React.FC> = {
 	[Page.Home]: Home,
-  	[Page.Stats]: Stats,
+  	[Page.Scans]: Scans,
   	[Page.Config]: Config,
 };
 
+const STORAGE_KEY = 'lastPageBookmark';
+
 function App() {
-	const [pageOpen, setPageOpen] = useState<Page>(Page.Home)
+	// Initialize page from localStorage if available
+	const [pageOpen, setPageOpen] = useState<Page>(() => {
+		const savedPage = localStorage.getItem(STORAGE_KEY);
+		if (savedPage && Object.values(Page).includes(savedPage as Page)) {
+			return savedPage as Page;
+		}
+		return Page.Home;
+	});
+
+	useEffect(() => {
+		// Save page to localStorage when it changes
+		localStorage.setItem(STORAGE_KEY, pageOpen);
+	}, [pageOpen]);
 
 	const CurrentPageComponent = pageComponents[pageOpen];
 
@@ -30,7 +44,7 @@ function App() {
 					<div
 						key={pageValue}
 						onClick={() => setPageOpen(pageValue)}
-						className={"border border-black cursor-pointer transition-all font-semibold rounded-3xl px-4 py-1.5" 
+						className={"cursor-pointer transition-all font-semibold rounded-3xl px-4 py-1.5" 
 							+ " " + (pageOpen === pageValue && "bg-black text-white")}
 					>
 						{pageValue}
@@ -38,7 +52,7 @@ function App() {
 				))}
 			</nav>
 
-			<main className='w-full border border-black rounded-3xl p-8'>
+			<main className='w-full rounded-3xl p-2'>
 				<CurrentPageComponent/>
 			</main>
     	</div>
