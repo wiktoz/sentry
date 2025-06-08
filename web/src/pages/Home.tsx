@@ -39,15 +39,13 @@ const Home = () => {
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
-    if (!data || data.length === 0) return <div>No scans found</div>;
 
     // Find newest scan by date
-    const newestScan = data.reduce((latest:any, current:any) => {
+    const newestScan = data?.reduce((latest:any, current:any) => {
         return new Date(current.date) > new Date(latest.date) ? current : latest;
     });
 
-    const newestScanWithVulns = data
-    .filter(scan => 
+    const newestScanWithVulns = data?.filter(scan => 
         scan.hosts && scan.hosts.some(host => 
         host.ports && host.ports.some(port => 
             port.vulnerabilities && port.vulnerabilities.length > 0
@@ -60,7 +58,7 @@ const Home = () => {
 
     // Count vulnerabilities in newest scan
     let totalVulnerabilities = 0;
-    if (newestScanWithVulns.hosts) {
+    if (newestScanWithVulns?.hosts) {
         for (const host of newestScanWithVulns.hosts) {
         if (host.ports) {
             for (const port of host.ports) {
@@ -117,7 +115,7 @@ const Home = () => {
                     <h3 className="font-bold text-xl mb-4">Notifications</h3>
                 </div>
                 <div className="mb-4">
-                    <h2>newest scan: <span className="font-semibold">{formatDate(newestScan.date)}</span></h2>
+                    <h2>newest scan: <span className="font-semibold">{newestScan ? formatDate(newestScan.date) : "No scans"}</span></h2>
                 </div>
                 {
                     totalVulnerabilities > 0 &&

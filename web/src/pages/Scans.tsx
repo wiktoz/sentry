@@ -36,7 +36,7 @@ const Stats = () => {
 
     if (loading) return <p>Loading...</p>;
     if (error) return <p>Error: {error}</p>;
-    if (!data) return null;
+    if (!data || data.length === 0) return <div>No scans found</div>;
 
     return(
         <div className="flex flex-col gap-2">
