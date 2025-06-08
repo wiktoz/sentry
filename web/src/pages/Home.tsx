@@ -41,33 +41,27 @@ const Home = () => {
     if (error) return <div>Error: {error}</div>;
 
     // Find newest scan by date
-    const newestScan = data?.reduce((latest:any, current:any) => {
-        return new Date(current.date) > new Date(latest.date) ? current : latest;
-    });
+    const newestScan = data && data.length > 0
+    ? data.reduce((latest, current) => new Date(current.date) > new Date(latest.date) ? current : latest)
+    : undefined;
 
-    const newestScanWithVulns = data?.filter(scan => 
-        scan.hosts && scan.hosts.some(host => 
-        host.ports && host.ports.some(port => 
-            port.vulnerabilities && port.vulnerabilities.length > 0
+    const filteredScans = data?.filter(scan => 
+        scan.hosts?.some(host => 
+            host.ports?.some(port => 
+                port.vulnerabilities && port.vulnerabilities.length > 0
+            )
         )
-        )
-    )?.reduce((latest, current) => {
-        return new Date(current.date) > new Date(latest.date) ? current : latest;
-    });
+    ) ?? [];
+
+    const newestScanWithVulns = filteredScans.length > 0
+    ? filteredScans.reduce((latest, current) => 
+        new Date(current.date) > new Date(latest.date) ? current : latest
+      )
+    : undefined;
 
     // Count vulnerabilities in newest scan
-    let totalVulnerabilities = 0;
-    if (newestScanWithVulns?.hosts) {
-        for (const host of newestScanWithVulns.hosts) {
-        if (host.ports) {
-            for (const port of host.ports) {
-            if (port.vulnerabilities) {
-                totalVulnerabilities += port.vulnerabilities.length;
-            }
-            }
-        }
-        }
-    }
+    const totalVulnerabilities = newestScanWithVulns?.hosts?.reduce((acc, host) => acc + (host.ports?.reduce((pAcc, port) => pAcc + (port.vulnerabilities?.length ?? 0), 0) ?? 0), 0) ?? 0;
+
 
     const runScan = async () => {
         try {
