@@ -51,8 +51,7 @@ const Home = () => {
             port.vulnerabilities && port.vulnerabilities.length > 0
         )
         )
-    )
-    .reduce((latest, current) => {
+    )?.reduce((latest, current) => {
         return new Date(current.date) > new Date(latest.date) ? current : latest;
     });
 
