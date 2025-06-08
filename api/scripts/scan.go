@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/xml"
+	"fmt"
 	"html"
 	"log"
 	"os/exec"
@@ -188,13 +189,12 @@ func RunVulnScan(hosts []Host, scanID int) error {
 			target := addr.Addr + " -p " + strings.Join(ports, ",")
 
 			args := []string{"-sV", "--script", "vulners", "--host-timeout", "30s", "-oX", "-"}
-			args = append(args, strings.Split(target, " ")...) // split into ["IP", "-p", "ports"]
+			args = append(args, strings.Split(target, " ")...)
 
 			log.Println("Running nmap for:", addr.Addr)
 
 			cmd := exec.Command("nmap", args...)
 			output, err := cmd.Output()
-
 			if err != nil {
 				return err
 			}
@@ -209,8 +209,12 @@ func RunVulnScan(hosts []Host, scanID int) error {
 				return err
 			}
 
+			var emailBody strings.Builder
+			totalVulns := 0
+
+			emailBody.WriteString("<html><body style=\"font-family: sans-serif;\">")
+
 			for _, scannedHost := range nmapRun.Hosts {
-				// Skip timed-out hosts to avoid missing data errors
 				if scannedHost.TimedOut {
 					log.Printf("Skipping timed-out host: %+v\n", scannedHost.Addresses)
 					continue
@@ -228,6 +232,9 @@ func RunVulnScan(hosts []Host, scanID int) error {
 						return err
 					}
 
+					var hostVulnCount int
+					hostHeaderWritten := false
+
 					for _, scannedPort := range scannedHost.Ports.Port {
 						var portID int64
 						err := tx.QueryRow("SELECT id FROM ports WHERE host_id = ? AND port_id = ?", hostID, scannedPort.PortID).Scan(&portID)
@@ -243,6 +250,28 @@ func RunVulnScan(hosts []Host, scanID int) error {
 						for _, script := range scannedPort.Scripts {
 							if script.ID == "vulners" {
 								vulns := ParseVulnersOutput(script.Output)
+								if len(vulns) > 0 {
+									if !hostHeaderWritten {
+										emailBody.WriteString(fmt.Sprintf(`<h2>Host: <b>%s</b></h2>`, scannedAddr.Addr))
+										hostHeaderWritten = true
+									}
+
+									hostVulnCount += len(vulns)
+									emailBody.WriteString(fmt.Sprintf(`<p><b>Port: %d</b> - Showing up to 5 vulnerabilities:</p><ul>`, scannedPort.PortID))
+
+									for i, vuln := range vulns {
+										if i >= 5 {
+											break
+										}
+										emailBody.WriteString(fmt.Sprintf(
+											`<li><span style="color:#d9534f;font-weight:bold;"><a href="%s" style="color:#d9534f;text-decoration:none;">%s</a></span> (Score: %.1f)</li>`,
+											vuln.URL, vuln.VulnID, vuln.Score,
+										))
+									}
+
+									emailBody.WriteString("</ul>")
+								}
+
 								for _, vuln := range vulns {
 									_, err := tx.Exec(
 										`INSERT INTO vulnerabilities (port_id, vuln_id, score, url, description)
@@ -257,15 +286,30 @@ func RunVulnScan(hosts []Host, scanID int) error {
 							}
 						}
 					}
+
+					if hostVulnCount > 0 {
+						totalVulns += hostVulnCount
+						emailBody.WriteString(fmt.Sprintf(`<p><i>Total vulnerabilities on this host: <b>%d</b></i></p>`, hostVulnCount))
+					}
 				}
 			}
+
+			emailBody.WriteString("</body></html>")
 
 			if err := tx.Commit(); err != nil {
 				return err
 			}
+
+			if totalVulns > 0 {
+				subject := fmt.Sprintf("Vulnerabilities detected on %s (%d total)", addr.Addr, totalVulns)
+				if err := SendEmail(subject, emailBody.String()); err != nil {
+					log.Printf("Failed to send email: %v", err)
+				} else {
+					log.Printf("Email sent for host %s", addr.Addr)
+				}
+			}
 		}
 	}
-
 	return nil
 }
 

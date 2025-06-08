@@ -85,8 +85,20 @@ func RunScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cfg, err := db.GetConfig(db.DB)
+	if err != nil {
+		http.Error(w, "Error getting scan config", http.StatusInternalServerError)
+		return
+	}
+
+	targets := cfg.ScanTarget
+	if targets == "" {
+		http.Error(w, "No scan targets", http.StatusInternalServerError)
+		return
+	}
+
 	// Start the scan in background, passing scanID as int
-	go scripts.RunFullScan(int(scanID), "192.168.1.0/24")
+	go scripts.RunFullScan(int(scanID), targets)
 
 	// Return the scan ID immediately as JSON
 	w.Header().Set("Content-Type", "application/json")
